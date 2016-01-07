@@ -7,12 +7,33 @@
 //        3) Automatically Ignores case for Hexadecimal values, i.e. 0xa vs 0xA
 // File Input:
 //        1) the files can be from any path, local or external
-//        2) The file names can include and extension or not, i.e. file.json or file.
+//        2) The file names can include an extension or not, i.e. file.json or file.
 //        3) The test case name is taken from the fileNL (left file) for each test
 // Save Path:
 //        1) the save path will be the directory of the first input file
 
-const MIN_NUM_ARG = 4;	// require 2 command arguments plus, at least 2 file arguments
+//------------------ Script/Compilation Variables ---------------------//
+// There are 3 different ways to use this script:
+//  1) Run as a script with Node.js. In this case, COMPILE_WITH_JX = 0
+//  2) Compile using Enclose. In this case, COMPILE_WITH_JX = 0
+//    - Problem: not for commercial use
+//  3) Compile with JX. In this case, COMPILE_WITH_JX = 1
+//    - can be used commercially
+const COMPILE_WITH_JX = 1;
+
+// minimum number of arguments for NODE.js operations and Enclose compilation
+var NUM_CMD_ARG = 2;	// require 2 command arguments, node and scriptName
+
+if (COMPILE_WITH_JX === 1)
+{
+	NUM_CMD_ARG = 1;	// when compile with JX, the "NODE" argument is removed
+}
+
+//------------------ Declarations ---------------------//
+const MIN_NUM_FILES  = 2;
+const FIRST_FILE_IDX = NUM_CMD_ARG;
+const MIN_NUM_ARG 	 = MIN_NUM_FILES + NUM_CMD_ARG;
+
 // text used for prefix to pass/fail test cases in output
 const FAIL_TEXT   = "fail";
 const PASS_TEXT   = "good";
@@ -45,6 +66,10 @@ var testResult  = [];			// array of individual test results
 var resultArray = [];			// complete result array
 var PASS = 0;
 var FAIL = 0;
+
+//----- compute the number of tests, and number of files -----//
+var numFiles = process.argv.length - NUM_CMD_ARG;
+var numTests = numFiles / MIN_NUM_FILES;
  
 //---------- Verify Command Arguments ----------//
 if (process.argv.length < MIN_NUM_ARG)
@@ -56,17 +81,17 @@ if (process.argv.length < MIN_NUM_ARG)
 }
 
 //--------- extract the save path ---------//
-var file1  = process.argv[2];
+var file1  = process.argv[FIRST_FILE_IDX];
 var endIdx = file1.lastIndexOf("\\") + 1;
 savePath   = file1.substring(0, endIdx);
 
 //---------- Verify Even Number of Files For Comparison ----------//
-if ( (process.argv.length % 2) > 0)
+if ( (numFiles % 2) > 0)
 {
-	console.error('Unevern number of file arguments.');
+	console.error('Uneven number of file arguments.');
 	console.error(USAGE);
 	updateFinalResults(1);
-	writeResultToFile();
+	writeResultToFile(1);
 	process.exit(1);	 	
 }
 
@@ -75,10 +100,6 @@ console.log('------ Comparing JSON Files ------');
 //-------- Delete any prexisting result files --------//
 deleteFile(savePath + FAIL_FILE);
 deleteFile(savePath + PASS_FILE);
-
-//----- compute the number of tests, and number of files -----//
-var numTests = (process.argv.length - 2) / 2;
-var numFiles = numTests*2;
 
 resultObj["count"] = numTests;
 
@@ -90,7 +111,7 @@ if (useServer)
 //--------- Extract all of the test cases ---------//
 for (var i=0; i<numFiles; i+=2)
 {
-	var argIdx = i + 2;
+	var argIdx = i + FIRST_FILE_IDX;
 	var fileLeft  = process.argv[argIdx];
 	var fileRight = process.argv[argIdx+1];
 	
@@ -102,7 +123,7 @@ Object.keys(globFileObj).forEach
 ( 
 	function(test)
 	{
-		console.log('--- Testing: ', test);
+		console.log('Testing: ', test);
 		
 		// read in the JSON Text to an Object
 		var jsonLeft  = readJsonFile( globFileObj[test][0] );
@@ -129,7 +150,7 @@ Object.keys(globFileObj).forEach
 			FAIL += 1;
 		}
 		
-		console.log("----- result: ", result);	
+		console.log("--- result: ", result);	
 		
 		// update the result array
 		resultArray.push(result);
@@ -141,7 +162,7 @@ Object.keys(globFileObj).forEach
 updateFinalResults(0);
 
 //------------ Write the Result to a File -------------//
-writeResultToFile();
+writeResultToFile(0);
 
 if (useServer)
 {
@@ -178,12 +199,12 @@ function deleteFile(file)
 }
 
 //------------------- writeResultToFile ---------------------//
-function writeResultToFile()
+function writeResultToFile(testError)
 {
 	var testResultStr = JSON.stringify(testResult);
 
 	var resultFile = savePath;
-	if ( FAIL > 0) 
+	if ( FAIL > 0 || testError > 0) 
 	{
 		resultFile += FAIL_FILE;
 	}
